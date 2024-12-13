@@ -6,3 +6,4 @@ __pycache__
 conf/.env
 .ipynb_checkpoints
 **/secrets_and_local_config
+inject-secret.sh

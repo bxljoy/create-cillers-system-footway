@@ -42,6 +42,11 @@ modules:
         - { name: OPENAI_API_KEY, value: "#pt-secret openai-api-key" }
         - { name: ANTHROPIC_API_KEY, value: "#pt-secret anthropic-api-key" }
         - { name: FOOTWAY_API_KEY, value: "#pt-secret footway-api-key" }
+        - { name: POSTGRES_HOST, value: "postgres" }
+        - { name: POSTGRES_PORT, value: "5432" }
+        - { name: POSTGRES_DB, value: "footway" }
+        - { name: POSTGRES_USER, value: "postgres" }
+        - { name: POSTGRES_PASSWORD, value: "postgres" }
       mounts:
         - { path: /root/.cache/, source: { type: volume, scope: project, id: dependency-cache } }
         - { path: /root/conf/, source: { type: host, path: ./conf } }
@@ -110,3 +115,16 @@ modules:
       mounts:
         - { path: /root/.cache/, source: { type: volume, scope: project, id: dependency-cache }}
         - { path: /root/conf/, source: { type: host, path: ./conf/components/couchbase }}
+
+  - id: postgres
+    module: polytope/postgres
+    args:
+      image: ankane/pgvector
+      env:
+        - { name: POSTGRES_DB, value: "footway" }
+        - { name: POSTGRES_USER, value: "postgres" }
+        - { name: POSTGRES_PASSWORD, value: "postgres" }
+      data-volume: { type: volume, scope: project, id: postgres-data }
+      services:
+        - id: postgres
+          ports: [{ port: 5432 }]

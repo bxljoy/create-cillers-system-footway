@@ -3,6 +3,7 @@ import uvicorn
 from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
 from routes import router
+from clients.postgres import PostgresVectorClient
 
 from utils import log
 log.init(os.getenv("LOG_LEVEL", "INFO"))
@@ -29,6 +30,10 @@ app = FastAPI(
     ]
 )
 app.include_router(router, prefix="/api")
+
+vector_client = PostgresVectorClient()
+vector_client.initialize_table()
+vector_client.load_sample_data()
 
 def custom_openapi():
     if app.openapi_schema:
