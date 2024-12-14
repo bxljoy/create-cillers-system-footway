@@ -128,7 +128,7 @@ class PostgresVectorClient:
                     return
 
             # If we get here, the table is empty, so proceed with loading sample data
-            url = "https://storage.googleapis.com/footway-plus-merchant-service-eu-prod-assets-bucket/sample_data/transformed_data_2.csv"
+            url = "https://storage.googleapis.com/footway-plus-merchant-service-eu-prod-assets-bucket/sample_data/transformed_data_3.csv"
             response = requests.get(url)
             response.raise_for_status()
             
