@@ -3,8 +3,16 @@ _transform: true
 
 services:
 
+- name: frontend
+  url: http://frontend
+  routes:
+  - name: frontend-route
+    strip_path: false
+    paths:
+    - /
+
 - name: api
-  url: http://api:4000
+  url: http://api
   routes:
   - name: api-route
     strip_path: false

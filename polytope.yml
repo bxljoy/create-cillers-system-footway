@@ -1,44 +1,34 @@
 templates:
-- id: footway-hackathon
+- id: stack
   run:
-  - backend
+  - api
   - postgres
-  # - couchbase
-  # - couchbase-init
   - kong
-  - web-app
+  - frontend
 
 modules:
-  - id: backend
+  - id: kong
+    module: polytope/kong!simple
+    args:
+      image: gcr.io/arched-inkwell-420116/kong:3.6.1
+      port: 3000
+      config-file: { type: host, path: ./conf/components/kong/dev.yml }
+      autoreload: true
+      services:
+      - { id: kong, ports: [{ port: 3000, protocol: http }]}
+
+  - id: api
     module: polytope/python
-    params:
-      - { id: couchbase-protocol, type: [default, str, couchbase] }
-      - { id: couchbase-host, type: [default, str, couchbase] }
-      - { id: couchbase-username, type: [default, str, admin] }
-      - { id: couchbase-password, type: [default, str, password] }
-      - { id: couchbase-default-bucket-name, type: [default, str, main] }
-      - { id: api-port, type: [default, int, 4000] }
-      - { id: api-reload, type: [default, str, 'true'] }
-      - { id: api-url-for-apps, type: [default, str, http://localhost:11100] }
-      - { id: jwt-oidc-audience, type: [default, str, http://localhost/api] }
-      - { id: jwt-oidc-jwks-url, type: [default, str, http://curity:8443/oauth/v2/oauth-anonymous/jwks] }
     args:
       id: backend
       image: gcr.io/arched-inkwell-420116/python:3.11.8-slim-bookworm
-      code: { type: host, path: ./code/api-python-rest }
+      code: { type: host, path: ./api }
       cmd: ./bin/run
       restart: { policy: on-failure }
       services:
-      - { id: "api", ports: [{protocol: http, port: "#pt-param api-port"}] }
+        - { id: "api", ports: [{protocol: http, port: 80, expose-as: 3001}] }
       env:
-        - { name: COUCHBASE_PROTOCOL, value: "#pt-param couchbase-protocol" }
-        - { name: COUCHBASE_HOST, value: "#pt-param couchbase-host" }
-        - { name: COUCHBASE_USERNAME, value: "#pt-param couchbase-username" }
-        - { name: COUCHBASE_PASSWORD, value: "#pt-param couchbase-password" }
-        - { name: COUCHBASE_DEFAULT_BUCKET_NAME, value: "#pt-param couchbase-default-bucket-name" }
-        - { name: API_PORT, value: "#pt-param api-port" }
-        - { name: API_RELOAD, value: "#pt-param api-reload" }
-        - { name: API_URL_FOR_APPS, value: "#pt-param api-url-for-apps" }
+        - { name: API_PORT, value: 4000 }
         - { name: LOG_LEVEL, value: INFO }
         - { name: OPENAI_API_KEY, value: "#pt-secret openai-api-key" }
         - { name: ANTHROPIC_API_KEY, value: "#pt-secret anthropic-api-key" }
@@ -52,70 +42,26 @@ modules:
         - { path: /root/.cache/, source: { type: volume, scope: project, id: dependency-cache } }
         - { path: /root/conf/, source: { type: host, path: ./conf } }
 
-  - id: web-app
-    info: The Web App
+  - id: frontend
     module: polytope/node
-    params:
-      - id: api-protocol-host-port
-        type: [default, str, http://localhost:11100]
     args:
-      id: web-app
+      id: frontend
       image: gcr.io/arched-inkwell-420116/node:21.7.0-slim
-      code: { type: host, path: ./code/web-app-react-rest }
+      code: { type: host, path: ./frontend }
       cmd: ./bin/run
       env:
-        - { name: PORT, value: 11000 }
+        - { name: PORT, value: 3000 }
         - { name: HOST, value: 0.0.0.0 }
-        - { name: REACT_APP_API_BASE_URL, value: "#pt-js params['apiProtocolHostPort'] + '/api'" }
-        - { name: REACT_APP_OAUTH_AGENT_BASE_URL, value: "#pt-js params['apiProtocolHostPort'] + '/oauth-agent-web-app'" }
+        - { name: REACT_APP_API_BASE_URL, value: "http://localhost:3000" }
       restart:
         policy: on-failure
       services:
-        - id: web-app
-          ports: [{protocol: http, port: 11000}]
+        - id: frontend
+          ports: [{protocol: http, port: 3000, expose-as: 3002}]
       mounts:
         - { path: /root/.cache/, source: { type: volume, scope: project, id: dependency-cache }}
         - { path: /root/.npm/, source: { type: volume, scope: project, id: npm-cache }}
         - { path: /app/node_modules/, source: { type: volume, scope: project, id: npm-modules }}
-
-  - id: kong
-    module: polytope/kong!simple
-    args:
-      image: gcr.io/arched-inkwell-420116/kong:3.6.1
-      port: 3000
-      env:
-        - { name: KONG_NGINX_HTTP_LUA_SHARED_DICT, value: 'phantom-token 10m' }
-      plugins:
-        - { name: oauth-proxy, package: kong-oauth-proxy, version: 1.3.0 }
-        - { name: phantom-token, package: kong-phantom-token, version: 2.0.0 }
-      config-file: { type: host, path: ./conf/components/kong/dev.yml }
-      autoreload: true
-      services:
-      - { id: kong, ports: [{ port: 3000, protocol: http, expose-as: 11100}]}
-
-  - id: couchbase
-    module: polytope/couchbase
-    args:
-      image: gcr.io/arched-inkwell-420116/couchbase:enterprise-7.6.1
-      data-volume: { type: volume, scope: project, id: couchbase-data }
-
-  - id: couchbase-init
-    module: polytope/python
-    args:
-      image: gcr.io/arched-inkwell-420116/python:3.11.8-slim-bookworm
-      code: { type: host, path: ./cillers/couchbase-init }
-      id: couchbase-init
-      cmd: ./bin/run
-      restart: { policy: on-failure }
-      env:
-        - { name: COUCHBASE_HOST, value: "couchbase" }
-        - { name: COUCHBASE_TLS, value: false }
-        - { name: COUCHBASE_USERNAME, value: admin }
-        - { name: COUCHBASE_PASSWORD, value: password }
-        - { name: COUCHBASE_MAIN_BUCKET_NAME, value: main }
-      mounts:
-        - { path: /root/.cache/, source: { type: volume, scope: project, id: dependency-cache }}
-        - { path: /root/conf/, source: { type: host, path: ./conf/components/couchbase }}
 
   - id: postgres
     module: polytope/postgres
