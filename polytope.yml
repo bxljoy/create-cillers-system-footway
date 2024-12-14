@@ -2,8 +2,9 @@ templates:
 - id: footway-hackathon
   run:
   - backend
-  - couchbase
-  - couchbase-init
+  - postgres
+  # - couchbase
+  # - couchbase-init
   - kong
   - web-app
 
